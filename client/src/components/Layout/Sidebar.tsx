@@ -1,3 +1,4 @@
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -10,6 +11,7 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
+  Divider,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -18,7 +20,12 @@ import {
   Payment as PaymentIcon,
   Settings as SettingsIcon,
   LocalHospital as LocalHospitalIcon,
+  Event as EventIcon,
+  Person as PersonIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
+import { useDispatch } from 'react-redux';
+import { logout } from '../../store/slices/authSlice';
 
 interface SidebarProps {
   drawerWidth: number;
@@ -26,23 +33,37 @@ interface SidebarProps {
   onDrawerToggle: () => void;
 }
 
-const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-  { text: 'Patients', icon: <PeopleIcon />, path: '/patients' },
-  { text: 'Appointments', icon: <CalendarIcon />, path: '/appointments' },
-  { text: 'Treatments', icon: <LocalHospitalIcon />, path: '/treatments' },
-  { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-];
-
-const Sidebar = ({ drawerWidth, mobileOpen, onDrawerToggle }: SidebarProps) => {
+const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, mobileOpen, onDrawerToggle }) => {
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const dispatch = useDispatch();
+
+  const menuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Patients', icon: <PeopleIcon />, path: '/patients' },
+    { text: 'Appointments', icon: <EventIcon />, path: '/appointments' },
+    { text: 'Treatments', icon: <LocalHospitalIcon />, path: '/treatments' },
+    { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
+    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+  ];
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    if (isMobile) {
+      onDrawerToggle();
+    }
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login');
+  };
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
         sx={{
           p: 3,
@@ -60,42 +81,46 @@ const Sidebar = ({ drawerWidth, mobileOpen, onDrawerToggle }: SidebarProps) => {
 
       <List sx={{ flexGrow: 1, pt: 2 }}>
         {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                if (isMobile) {
-                  onDrawerToggle();
-                }
-              }}
-              sx={{
-                mx: 1,
-                borderRadius: 1,
-                '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': {
-                    bgcolor: 'primary.dark',
-                  },
-                  '& .MuiListItemIcon-root': {
-                    color: 'inherit',
-                  },
+          <ListItem
+            button
+            key={item.text}
+            onClick={() => handleNavigation(item.path)}
+            selected={location.pathname === item.path}
+            sx={{
+              '&.Mui-selected': {
+                backgroundColor: theme.palette.primary.main + '20',
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.main + '30',
                 },
+              },
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                color: location.pathname === item.path ? theme.palette.primary.main : 'inherit',
               }}
             >
-              <ListItemIcon
-                sx={{
-                  minWidth: 40,
-                  color: location.pathname === item.path ? 'inherit' : 'text.primary',
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText
+              primary={item.text}
+              sx={{
+                color: location.pathname === item.path ? theme.palette.primary.main : 'inherit',
+              }}
+            />
           </ListItem>
         ))}
+      </List>
+
+      <Box sx={{ flexGrow: 1 }} />
+      <Divider />
+      <List>
+        <ListItem button onClick={handleLogout}>
+          <ListItemIcon>
+            <LogoutIcon />
+          </ListItemIcon>
+          <ListItemText primary="Logout" />
+        </ListItem>
       </List>
 
       <Box

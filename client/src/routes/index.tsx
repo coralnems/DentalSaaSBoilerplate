@@ -9,6 +9,8 @@ import PatientList from '../pages/patients/PatientList';
 import PatientForm from '../components/patients/PatientForm';
 import AppointmentList from '../pages/appointments/AppointmentList';
 import AppointmentForm from '../components/appointments/AppointmentForm';
+import Settings from '../pages/settings/Settings';
+import Profile from '../pages/profile/Profile';
 import { RootState } from '../store';
 
 const AppRoutes: React.FC = () => {
@@ -34,6 +36,8 @@ const AppRoutes: React.FC = () => {
         <Route path="/appointments" element={<AppointmentList />} />
         <Route path="/appointments/new" element={<AppointmentForm />} />
         <Route path="/appointments/:id/edit" element={<AppointmentForm isEditing />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

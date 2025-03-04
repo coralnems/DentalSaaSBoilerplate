@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Box, useMediaQuery, useTheme } from '@mui/material';
@@ -8,7 +9,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Notifications from '../Notifications';
 
-const Layout = () => {
+const Layout: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { sidebarOpen } = useSelector((state: RootState) => state.ui);
@@ -44,8 +45,8 @@ const Layout = () => {
         }}
       >
         <Outlet />
+        <Notifications />
       </Box>
-      <Notifications />
     </Box>
   );
 };

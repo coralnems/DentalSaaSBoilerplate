@@ -20,6 +20,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { addNotification } from '../../store/slices/uiSlice';
 import { api } from '../../services/api';
+import { showNotification } from '../../store/slices/notificationSlice';
 
 interface Address {
   street: string;
@@ -53,6 +54,24 @@ interface PatientFormData {
   emergencyContact: EmergencyContact;
   preferredLanguage: string;
   communicationPreferences: CommunicationPreferences;
+  medicalHistory: {
+    conditions: string[];
+    medications: string[];
+    allergies: string[];
+    surgeries: string[];
+  };
+  dentalHistory: {
+    lastVisit: string;
+    previousDentist: string;
+    concerns: string;
+    treatments: string[];
+  };
+  insurance: {
+    provider: string;
+    policyNumber: string;
+    groupNumber: string;
+    primaryInsured: string;
+  };
 }
 
 interface PatientFormProps {
@@ -84,6 +103,24 @@ const validationSchema = Yup.object({
     email: Yup.boolean(),
     phone: Yup.boolean(),
     sms: Yup.boolean()
+  }),
+  medicalHistory: Yup.object({
+    conditions: Yup.array().of(Yup.string()),
+    medications: Yup.array().of(Yup.string()),
+    allergies: Yup.array().of(Yup.string()),
+    surgeries: Yup.array().of(Yup.string())
+  }),
+  dentalHistory: Yup.object({
+    lastVisit: Yup.string().required('Last visit date is required'),
+    previousDentist: Yup.string().required('Previous dentist is required'),
+    concerns: Yup.string().required('Concerns are required'),
+    treatments: Yup.array().of(Yup.string())
+  }),
+  insurance: Yup.object({
+    provider: Yup.string().required('Insurance provider is required'),
+    policyNumber: Yup.string().required('Policy number is required'),
+    groupNumber: Yup.string().required('Group number is required'),
+    primaryInsured: Yup.string().required('Primary insured is required')
   })
 });
 
@@ -111,6 +148,24 @@ const defaultInitialValues: PatientFormData = {
     email: true,
     phone: true,
     sms: true
+  },
+  medicalHistory: {
+    conditions: [],
+    medications: [],
+    allergies: [],
+    surgeries: []
+  },
+  dentalHistory: {
+    lastVisit: '',
+    previousDentist: '',
+    concerns: '',
+    treatments: []
+  },
+  insurance: {
+    provider: '',
+    policyNumber: '',
+    groupNumber: '',
+    primaryInsured: ''
   }
 };
 
@@ -123,24 +178,31 @@ const PatientForm: React.FC<PatientFormProps> = ({ initialValues = defaultInitia
   const handleSubmit = async (values: PatientFormData) => {
     try {
       setLoading(true);
-      if (isEditing && initialValues._id) {
-        await api.put(`/patients/${initialValues._id}`, values);
-        dispatch(addNotification({
-          message: 'Patient updated successfully',
-          type: 'success'
-        }));
-      } else {
-        await api.post('/patients', values);
-        dispatch(addNotification({
-          message: 'Patient created successfully',
-          type: 'success'
-        }));
+      const url = isEditing ? `/api/patients/${initialValues._id}` : '/api/patients';
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save patient');
       }
-      navigate('/patients');
-    } catch (error: any) {
+
       dispatch(addNotification({
-        message: error.response?.data?.message || 'Failed to save patient',
-        type: 'error'
+        message: `Patient ${isEditing ? 'updated' : 'created'} successfully`,
+        type: 'success',
+      }));
+
+      navigate('/patients');
+    } catch (error) {
+      dispatch(addNotification({
+        message: error instanceof Error ? error.message : 'An error occurred',
+        type: 'error',
       }));
     } finally {
       setLoading(false);
@@ -355,6 +417,150 @@ const PatientForm: React.FC<PatientFormProps> = ({ initialValues = defaultInitia
                     onBlur={handleBlur}
                     error={touched.emergencyContact?.phone && Boolean(errors.emergencyContact?.phone)}
                     helperText={touched.emergencyContact?.phone && (errors.emergencyContact?.phone as string)}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Medical History
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="medicalHistory.conditions"
+                    label="Conditions"
+                    value={values.medicalHistory.conditions.join(', ')}
+                    onChange={(e) => setFieldValue('medicalHistory.conditions', e.target.value.split(', '))}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="medicalHistory.medications"
+                    label="Medications"
+                    value={values.medicalHistory.medications.join(', ')}
+                    onChange={(e) => setFieldValue('medicalHistory.medications', e.target.value.split(', '))}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="medicalHistory.allergies"
+                    label="Allergies"
+                    value={values.medicalHistory.allergies.join(', ')}
+                    onChange={(e) => setFieldValue('medicalHistory.allergies', e.target.value.split(', '))}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="medicalHistory.surgeries"
+                    label="Surgeries"
+                    value={values.medicalHistory.surgeries.join(', ')}
+                    onChange={(e) => setFieldValue('medicalHistory.surgeries', e.target.value.split(', '))}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Dental History
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="dentalHistory.lastVisit"
+                    label="Last Visit"
+                    value={values.dentalHistory.lastVisit}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="dentalHistory.previousDentist"
+                    label="Previous Dentist"
+                    value={values.dentalHistory.previousDentist}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    name="dentalHistory.concerns"
+                    label="Concerns"
+                    value={values.dentalHistory.concerns}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    name="dentalHistory.treatments"
+                    label="Treatments"
+                    value={values.dentalHistory.treatments.join(', ')}
+                    onChange={(e) => setFieldValue('dentalHistory.treatments', e.target.value.split(', '))}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Insurance Information
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="insurance.provider"
+                    label="Insurance Provider"
+                    value={values.insurance.provider}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="insurance.policyNumber"
+                    label="Policy Number"
+                    value={values.insurance.policyNumber}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="insurance.groupNumber"
+                    label="Group Number"
+                    value={values.insurance.groupNumber}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="insurance.primaryInsured"
+                    label="Primary Insured"
+                    value={values.insurance.primaryInsured}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
                   />
                 </Grid>
               </Grid>
