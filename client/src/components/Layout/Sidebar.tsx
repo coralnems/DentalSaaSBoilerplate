@@ -12,6 +12,7 @@ import {
   useTheme,
   useMediaQuery,
   Divider,
+  Toolbar,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -31,9 +32,10 @@ interface SidebarProps {
   drawerWidth: number;
   mobileOpen: boolean;
   onDrawerToggle: () => void;
+  open: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, mobileOpen, onDrawerToggle }) => {
+const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, mobileOpen, onDrawerToggle, open }) => {
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -170,10 +172,15 @@ const Sidebar: React.FC<SidebarProps> = ({ drawerWidth, mobileOpen, onDrawerTogg
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
             width: drawerWidth,
+            ...(!open && {
+              width: theme => theme.spacing(7),
+              overflowX: 'hidden',
+            }),
           },
         }}
-        open
+        open={open}
       >
+        <Toolbar />
         {drawer}
       </Drawer>
     </Box>

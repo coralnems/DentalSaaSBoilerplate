@@ -1,10 +1,10 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import Layout from '../components/layout/Layout';
+import Layout from '../components/Layout/Layout';
 import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
-import Dashboard from '../pages/Dashboard';
+import Dashboard from '../pages/dashboard/index';
 import PatientList from '../pages/patients/PatientList';
 import PatientForm from '../components/patients/PatientForm';
 import AppointmentList from '../pages/appointments/AppointmentList';

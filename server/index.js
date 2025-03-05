@@ -5,12 +5,16 @@ const path = require('path');
 const cors = require('cors');
 const { resolveTenant } = require('./middleware/tenantMiddleware');
 const tenantRoutes = require('./routes/tenants');
+const initializeSecrets = require('./scripts/initSecrets');
 
 const { errorHandler, logger: errorLogger, AppError } = require('./middleware/errorHandler');
 const securityMiddleware = require('./middleware/security');
 const requestLogger = require('./middleware/logger');
 const swagger = require('./config/swagger');
 const routes = require('./routes');
+
+// Initialize secrets before starting the server
+initializeSecrets();
 
 // Create Express app
 const app = express();
