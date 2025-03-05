@@ -1,6 +1,7 @@
 const appointmentService = require('../services/appointmentService');
 const { BadRequestError } = require('../utils/errors');
 const { asyncHandler } = require('../middleware/asyncHandler');
+const Appointment = require('../models/Appointment');
 
 /**
  * Get all appointments with optional filtering
@@ -151,6 +152,53 @@ const getDentistAppointments = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Get appointments by date range
+ * @route GET /api/appointments/date-range
+ * @access Private
+ */
+const getByDateRange = asyncHandler(async (req, res) => {
+  const { startDate, endDate } = req.query;
+  
+  const appointments = await Appointment.find({
+    startTime: {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    }
+  })
+  .populate('patient', 'firstName lastName email phone')
+  .populate('dentist', 'firstName lastName');
+
+  res.status(200).json({
+    success: true,
+    count: appointments.length,
+    data: appointments
+  });
+});
+
+/**
+ * Cancel an appointment
+ * @route POST /api/appointments/:id/cancel
+ * @access Private
+ */
+const cancelAppointment = asyncHandler(async (req, res) => {
+  const appointment = await Appointment.findById(req.params.id);
+  
+  if (!appointment) {
+    throw new BadRequestError('Appointment not found');
+  }
+
+  appointment.status = 'cancelled';
+  appointment.cancellationReason = req.body.reason || 'No reason provided';
+  
+  await appointment.save();
+  
+  res.status(200).json({
+    success: true,
+    data: appointment
+  });
+});
+
 module.exports = {
   getAllAppointments,
   getAppointmentById,
@@ -158,5 +206,7 @@ module.exports = {
   updateAppointment,
   deleteAppointment,
   getPatientAppointments,
-  getDentistAppointments
+  getDentistAppointments,
+  getByDateRange,
+  cancelAppointment
 }; 

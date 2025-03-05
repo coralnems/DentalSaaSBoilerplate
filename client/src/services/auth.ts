@@ -1,26 +1,30 @@
 import { jwtDecode } from 'jwt-decode';
 
-const TOKEN_KEY = 'dental_clinic_token';
+// Token constants - must match those in api/auth.ts
+const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
 /**
  * Set authentication token in localStorage
  */
 export const setToken = (token: string): void => {
-  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(ACCESS_TOKEN_KEY, token);
 };
 
 /**
  * Get authentication token from localStorage
  */
 export const getToken = (): string | null => {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 };
 
 /**
  * Remove authentication token from localStorage
  */
 export const removeToken = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem('dental_clinic_token'); // Remove legacy token for backward compatibility
 };
 
 /**
@@ -28,7 +32,10 @@ export const removeToken = (): void => {
  */
 export const isAuthenticated = (): boolean => {
   const token = getToken();
-  if (!token) return false;
+  
+  if (!token) {
+    return false;
+  }
   
   try {
     const decoded: any = jwtDecode(token);
@@ -42,6 +49,7 @@ export const isAuthenticated = (): boolean => {
     
     return true;
   } catch (error) {
+    console.error('Token validation error:', error);
     removeToken();
     return false;
   }
@@ -52,11 +60,22 @@ export const isAuthenticated = (): boolean => {
  */
 export const getUserInfo = (): any | null => {
   const token = getToken();
-  if (!token) return null;
+  
+  if (!token) {
+    return null;
+  }
   
   try {
-    return jwtDecode(token);
+    const decoded: any = jwtDecode(token);
+    return {
+      _id: decoded.id || decoded._id || decoded.sub,
+      email: decoded.email,
+      firstName: decoded.firstName,
+      lastName: decoded.lastName,
+      role: decoded.role
+    };
   } catch (error) {
+    console.error('Error decoding token:', error);
     return null;
   }
 };
@@ -70,11 +89,14 @@ export const getUserRole = (): string | null => {
 };
 
 /**
- * Check if user has specific role
+ * Check if user has a specific role
  */
 export const hasRole = (role: string | string[]): boolean => {
   const userRole = getUserRole();
-  if (!userRole) return false;
+  
+  if (!userRole) {
+    return false;
+  }
   
   if (Array.isArray(role)) {
     return role.includes(userRole);
