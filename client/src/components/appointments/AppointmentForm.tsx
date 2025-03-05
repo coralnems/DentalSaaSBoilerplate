@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import {
@@ -16,16 +16,34 @@ import {
   Select,
   CircularProgress,
   Autocomplete,
-  useTheme
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  FormHelperText,
+  IconButton,
+  Chip,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { addMinutes, format } from 'date-fns';
-import { addNotification } from '../../store/slices/uiSlice';
+import { addMinutes, format, isBefore } from 'date-fns';
+import { addNotification, showNotification } from '../../store/slices/uiSlice';
 import { api } from '../../services/api';
+import { Close as CloseIcon, Save as SaveIcon } from '@mui/icons-material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import type { RootState } from '../../store';
 
 interface AppointmentFormProps {
   initialValues?: any;
   isEditing?: boolean;
+  open?: boolean;
+  onClose?: () => void;
+  appointment?: any;
+  onSave?: () => void;
+  userRole?: string;
+  userId?: string;
 }
 
 interface TimeSlot {
@@ -38,12 +56,33 @@ interface Patient {
   firstName: string;
   lastName: string;
   email: string;
+  phone: string;
 }
 
 interface Dentist {
   _id: string;
   firstName: string;
   lastName: string;
+  email: string;
+}
+
+interface Treatment {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+}
+
+interface Appointment {
+  _id?: string;
+  patientId: string;
+  dentistId: string;
+  startTime: Date;
+  endTime: Date;
+  status: string;
+  type: string;
+  notes?: string;
+  treatmentId?: string;
 }
 
 const validationSchema = Yup.object({
@@ -70,21 +109,28 @@ const defaultInitialValues = {
   reminders: ['email']
 };
 
-const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialValues = defaultInitialValues, isEditing = false }) => {
+const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialValues = defaultInitialValues, isEditing = false, open, onClose, appointment, onSave, userRole, userId }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const user = useSelector((state: RootState) => state.auth.user);
   
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [dentists, setDentists] = useState<Dentist[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDentist, setSelectedDentist] = useState<string>('');
+  const [formData, setFormData] = useState(initialValues);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
 
   useEffect(() => {
     fetchPatients();
     fetchDentists();
+    fetchTreatments();
   }, []);
 
   useEffect(() => {
@@ -92,6 +138,28 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialValues = defau
       fetchAvailableSlots();
     }
   }, [selectedDentist, selectedDate]);
+
+  useEffect(() => {
+    if (open) {
+      fetchData();
+      
+      if (appointment) {
+        setFormData(appointment);
+        
+        const patient = patients.find(p => p._id === appointment.patient);
+        setSelectedPatient(patient || null);
+        
+        if (appointment.treatmentId) {
+          const treatment = dentists.find(d => d._id === appointment.treatmentId);
+          setSelectedTreatment(treatment || null);
+        }
+      } else {
+        setFormData(initialValues);
+        setSelectedPatient(null);
+        setSelectedTreatment(null);
+      }
+    }
+  }, [open, appointment, initialValues, patients, dentists]);
 
   const fetchPatients = async () => {
     try {
@@ -135,209 +203,331 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialValues = defau
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      if (isEditing) {
-        await api.put(`/appointments/${initialValues._id}`, values);
-        dispatch(addNotification({
-          message: 'Appointment updated successfully',
-          type: 'success'
-        }));
-      } else {
-        await api.post('/appointments', values);
-        dispatch(addNotification({
-          message: 'Appointment created successfully',
-          type: 'success'
-        }));
-      }
-      navigate('/appointments');
-    } catch (error: any) {
-      dispatch(addNotification({
-        message: error.response?.data?.message || 'Failed to save appointment',
-        type: 'error'
-      }));
+      // In production, these would be real API calls
+      // const patientsResponse = await axios.get('/api/patients');
+      // const treatmentsResponse = await axios.get('/api/treatments');
+      
+      // For now, we'll use mock data
+      // setPatients(mockPatients);
+      // setTreatments(mockTreatments);
+    } catch (error) {
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+    
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: '',
+      }));
+    }
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<{ name?: string; value: unknown }>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handlePatientChange = (event: any, newValue: any) => {
+    setSelectedPatient(newValue);
+    if (newValue) {
+      setFormData(prev => ({
+        ...prev,
+        patient: newValue._id,
+        patientName: `${newValue.firstName} ${newValue.lastName}`,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        patient: '',
+        patientName: '',
+      }));
+    }
+  };
+
+  const handleTreatmentChange = (event: any, newValue: any) => {
+    setSelectedTreatment(newValue);
+    if (newValue) {
+      const endTime = new Date(formData.startTime.getTime() + newValue.duration * 60000);
+      
+      setFormData(prev => ({
+        ...prev,
+        treatmentId: newValue._id,
+        treatmentName: newValue.name,
+        endTime,
+      }));
+    } else {
+      const endTime = new Date(formData.startTime.getTime() + 30 * 60000);
+      
+      setFormData(prev => ({
+        ...prev,
+        treatmentId: '',
+        treatmentName: '',
+        endTime,
+      }));
+    }
+  };
+
+  const handleStartTimeChange = (date: Date | null) => {
+    if (!date) return;
+    
+    const currentDuration = formData.endTime.getTime() - formData.startTime.getTime();
+    
+    const newEndTime = new Date(date.getTime() + currentDuration);
+    
+    setFormData(prev => ({
+      ...prev,
+      startTime: date,
+      endTime: newEndTime,
+    }));
+  };
+
+  const handleEndTimeChange = (date: Date | null) => {
+    if (!date) return;
+    setFormData(prev => ({
+      ...prev,
+      endTime: date,
+    }));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.patient) {
+      newErrors.patient = 'Patient is required';
+    }
+    
+    if (!formData.type) {
+      newErrors.type = 'Appointment type is required';
+    }
+    
+    if (!formData.status) {
+      newErrors.status = 'Status is required';
+    }
+    
+    if (formData.endTime <= formData.startTime) {
+      newErrors.endTime = 'End time must be after start time';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
+    setSaving(true);
+    try {
+      // In a real application, this would call the API
+      // const response = appointment && appointment._id
+      //   ? await axios.put(`/api/appointments/${appointment._id}`, formData)
+      //   : await axios.post('/api/appointments', formData);
+      
+      // For demonstration, simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Call the onSave callback with the form data
+      onSave && onSave();
+      onClose && onClose();
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <Formik
-      initialValues={initialValues}
-      validationSchema={validationSchema}
-      onSubmit={handleSubmit}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+        },
+      }}
     >
-      {({ values, errors, touched, handleChange, handleBlur, setFieldValue }) => (
-        <Form>
-          <Box p={3}>
-            <Typography variant="h5" gutterBottom>
-              {isEditing ? 'Edit Appointment' : 'New Appointment'}
-            </Typography>
-
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Autocomplete
-                    options={patients}
-                    getOptionLabel={(patient) => `${patient.firstName} ${patient.lastName}`}
-                    value={patients.find(p => p._id === values.patient) || null}
-                    onChange={(_, newValue) => {
-                      setFieldValue('patient', newValue?._id || '');
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Patient"
-                        error={touched.patient && Boolean(errors.patient)}
-                        helperText={touched.patient && (errors.patient as string)}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Autocomplete
-                    options={dentists}
-                    getOptionLabel={(dentist) => `Dr. ${dentist.firstName} ${dentist.lastName}`}
-                    value={dentists.find(d => d._id === values.dentist) || null}
-                    onChange={(_, newValue) => {
-                      setFieldValue('dentist', newValue?._id || '');
-                      setSelectedDentist(newValue?._id || '');
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Dentist"
-                        error={touched.dentist && Boolean(errors.dentist)}
-                        helperText={touched.dentist && (errors.dentist as string)}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <DateTimePicker
-                    label="Date"
-                    value={selectedDate}
-                    onChange={(date) => {
-                      setSelectedDate(date);
-                      setFieldValue('startTime', null);
-                      setFieldValue('endTime', null);
-                    }}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true
-                      }
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Time Slot</InputLabel>
-                    <Select
-                      value=""
-                      label="Time Slot"
-                      onChange={(event) => {
-                        const slot = availableSlots[parseInt(event.target.value)];
-                        setFieldValue('startTime', new Date(slot.startTime));
-                        setFieldValue('endTime', new Date(slot.endTime));
-                      }}
-                      disabled={!selectedDate || !selectedDentist}
-                    >
-                      {availableSlots.map((slot, index) => (
-                        <MenuItem key={index} value={index}>
-                          {format(new Date(slot.startTime), 'p')} - {format(new Date(slot.endTime), 'p')}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Type</InputLabel>
-                    <Select
-                      name="type"
-                      value={values.type}
-                      label="Type"
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                      error={touched.type && Boolean(errors.type)}
-                    >
-                      <MenuItem value="checkup">Check-up</MenuItem>
-                      <MenuItem value="cleaning">Cleaning</MenuItem>
-                      <MenuItem value="filling">Filling</MenuItem>
-                      <MenuItem value="extraction">Extraction</MenuItem>
-                      <MenuItem value="root-canal">Root Canal</MenuItem>
-                      <MenuItem value="other">Other</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Urgency</InputLabel>
-                    <Select
-                      name="urgency"
-                      value={values.urgency}
-                      label="Urgency"
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    >
-                      <MenuItem value="low">Low</MenuItem>
-                      <MenuItem value="medium">Medium</MenuItem>
-                      <MenuItem value="high">High</MenuItem>
-                      <MenuItem value="emergency">Emergency</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    name="reason"
-                    label="Reason"
-                    value={values.reason}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.reason && Boolean(errors.reason)}
-                    helperText={touched.reason && (errors.reason as string)}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    name="notes"
-                    label="Notes"
-                    value={values.notes}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-
-            <Box display="flex" gap={2} justifyContent="flex-end">
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/appointments')}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                startIcon={loading && <CircularProgress size={20} />}
-              >
-                {isEditing ? 'Update Appointment' : 'Create Appointment'}
-              </Button>
-            </Box>
+      <DialogTitle sx={{ pb: 1 }}>
+        {isEditing ? 'Edit Appointment' : 'New Appointment'}
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          sx={{ position: 'absolute', right: 8, top: 8 }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      
+      <Divider />
+      
+      <DialogContent sx={{ py: 3 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+            <CircularProgress />
           </Box>
-        </Form>
-      )}
-    </Formik>
+        ) : (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                options={patients}
+                getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
+                value={selectedPatient}
+                onChange={handlePatientChange}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Patient"
+                    required
+                    error={!!errors.patient}
+                    helperText={errors.patient}
+                    fullWidth
+                  />
+                )}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                options={dentists}
+                getOptionLabel={(option) => `Dr. ${option.firstName} ${option.lastName}`}
+                value={selectedTreatment}
+                onChange={handleTreatmentChange}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Treatment"
+                    fullWidth
+                  />
+                )}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required error={!!errors.type}>
+                <InputLabel id="type-label">Appointment Type</InputLabel>
+                <Select
+                  labelId="type-label"
+                  name="type"
+                  value={formData.type}
+                  onChange={handleSelectChange}
+                  label="Appointment Type"
+                >
+                  <MenuItem value="checkup">Check-up</MenuItem>
+                  <MenuItem value="cleaning">Cleaning</MenuItem>
+                  <MenuItem value="filling">Filling</MenuItem>
+                  <MenuItem value="extraction">Extraction</MenuItem>
+                  <MenuItem value="root-canal">Root Canal</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+                {errors.type && <FormHelperText>{errors.type}</FormHelperText>}
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required error={!!errors.status}>
+                <InputLabel id="status-label">Status</InputLabel>
+                <Select
+                  labelId="status-label"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleSelectChange}
+                  label="Status"
+                >
+                  <MenuItem value="scheduled">Scheduled</MenuItem>
+                  <MenuItem value="confirmed">Confirmed</MenuItem>
+                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="no_show">No Show</MenuItem>
+                </Select>
+                {errors.status && <FormHelperText>{errors.status}</FormHelperText>}
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DateTimePicker
+                  label="Start Time"
+                  value={formData.startTime}
+                  onChange={handleStartTimeChange}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DateTimePicker
+                  label="End Time"
+                  value={formData.endTime}
+                  onChange={handleEndTimeChange}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      error: !!errors.endTime,
+                      helperText: errors.endTime,
+                    },
+                  }}
+                  minDateTime={new Date(formData.startTime.getTime() + 5 * 60000)}
+                />
+              </LocalizationProvider>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                name="notes"
+                label="Notes"
+                value={formData.notes || ''}
+                onChange={handleInputChange}
+                multiline
+                rows={4}
+                fullWidth
+                placeholder="Enter any additional notes about this appointment"
+              />
+            </Grid>
+          </Grid>
+        )}
+      </DialogContent>
+      
+      <Divider />
+      
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button onClick={onClose} color="inherit">
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          color="primary"
+          disabled={saving}
+          startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+        >
+          {saving ? 'Saving...' : 'Save Appointment'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

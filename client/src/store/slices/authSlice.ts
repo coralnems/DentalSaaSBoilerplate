@@ -18,12 +18,14 @@ interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
+  isLoading: boolean;
 }
 
 const initialState: AuthState = {
   isAuthenticated: false,
   user: null,
   token: null,
+  isLoading: true,
 };
 
 const authSlice = createSlice({
@@ -48,8 +50,11 @@ const authSlice = createSlice({
       state.token = null;
       state.isAuthenticated = false;
     },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload;
+    },
   },
 });
 
-export const { setUser, setToken, setCredentials, logout } = authSlice.actions;
+export const { setUser, setToken, setCredentials, logout, setLoading } = authSlice.actions;
 export default authSlice.reducer; 

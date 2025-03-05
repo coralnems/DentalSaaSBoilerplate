@@ -16,6 +16,7 @@ module.exports = {
     'semi': ['error', 'always'],
     'no-unused-vars': ['warn'],
     'no-console': ['warn', { allow: ['warn', 'error'] }],
-    'no-underscore-dangle': ['error', { allow: ['_id'] }]
+    'no-underscore-dangle': ['error', { allow: ['_id'] }],
+    'import/no-extraneous-dependencies': 'off'
   }
 };

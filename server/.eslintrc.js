@@ -1,7 +1,7 @@
 /* eslint-disable */
 module.exports = {
-  root: true,
-  extends: 'airbnb-base',
+  root: false,
+  extends: ['../.eslintrc.js'],
   parserOptions: {
     ecmaVersion: 7,
     sourceType: "module",
@@ -12,6 +12,8 @@ module.exports = {
     jest: true
   },
   rules: {
+    'import/no-extraneous-dependencies': 'off',
+    'linebreak-style': 'off',
     // override defaults
     eqeqeq: [2, 'smart'],
     'max-len': [2, { 'code': 120, 'tabWidth': 2, 'ignoreUrls': true }],

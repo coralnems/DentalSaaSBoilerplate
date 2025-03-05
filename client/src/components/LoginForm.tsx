@@ -23,31 +23,31 @@ const LoginForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Define credentials outside of JSX
+  // Updated credentials to match the mock data
   const credentials: Credential[] = [
     {
       role: "Admin",
-      email: "admin@healthcareapps.org",
-      password: "JPtp7XDGF=9ezR>q",
-      displayPassword: "JPtp7XDGF=9ezR>q"
+      email: "admin@dentalclinic.com",
+      password: "admin123",
+      displayPassword: "admin123"
     },
     {
       role: "Doctor",
-      email: "doctor@healthcareapps.org",
-      password: "M9V|?v}}&yrwcJML",
-      displayPassword: "M9V|?v}}&yrwcJML"
+      email: "dentist1@dentalclinic.com",
+      password: "dentist123",
+      displayPassword: "dentist123"
     },
     {
       role: "Receptionist",
-      email: "reception@healthcareapps.org",
-      password: "|;;g]J39=wiqQXKg",
-      displayPassword: "|;;g]J39=wiqQXKg"
+      email: "reception@dentalclinic.com",
+      password: "reception123",
+      displayPassword: "reception123"
     },
     {
       role: "Patient",
-      email: "patient@healthcareapps.org",
-      password: ",H,^v&F8MeMK@}64",
-      displayPassword: ",H,^v&F8MeMK@}64"
+      email: "patient1@example.com",
+      password: "patient123",
+      displayPassword: "patient123"
     }
   ];
 
@@ -81,14 +81,18 @@ const LoginForm: React.FC = () => {
       // Get return URL from location state or default to dashboard
       const from = (location.state as any)?.from?.pathname || '/dashboard';
       
+      // Safely get the user role from the response
+      // The role could be in response.role or in response.user.role depending on the structure
+      const role = response?.role || response?.user?.role;
+      
       // Redirect based on user role
-      if (response.user.role === 'admin') {
+      if (role === 'admin') {
         navigate('/dashboard');
-      } else if (response.user.role === 'doctor') {
+      } else if (role === 'doctor') {
         navigate('/dashboard');
-      } else if (response.user.role === 'receptionist') {
+      } else if (role === 'receptionist') {
         navigate('/dashboard');
-      } else if (response.user.role === 'patient') {
+      } else if (role === 'patient') {
         navigate('/dashboard');
       } else {
         // Default fallback
@@ -172,7 +176,7 @@ const LoginForm: React.FC = () => {
       
       <Box sx={{ mt: 4, textAlign: 'center' }}>
         <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'bold', mb: 1 }}>
-          Test Accounts (Updated) - Click to auto-fill:
+          Test Accounts - Click to auto-fill:
         </Typography>
         
         {credentials.map((cred, index) => (

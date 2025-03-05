@@ -33,7 +33,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { addNotification } from '../../store/slices/uiSlice';
-import { api } from '../../services/api';
+import { api, appointmentAPI } from '../../services/api';
 
 interface Appointment {
   _id: string;
@@ -77,23 +77,35 @@ const AppointmentList: React.FC = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
+      
+      const params = {
         page: (page + 1).toString(),
         limit: rowsPerPage.toString(),
         status,
-        ...(startDate && { startDate: startDate.toISOString() }),
-        ...(endDate && { endDate: endDate.toISOString() }),
-        ...(searchTerm && { search: searchTerm })
-      });
+        startDate: startDate ? startDate.toISOString() : undefined,
+        endDate: endDate ? endDate.toISOString() : undefined,
+        search: searchTerm || undefined
+      };
 
-      const response = await api.get(`/appointments?${params}`);
-      setAppointments(response.data.appointments);
-      setTotal(response.data.pagination.total);
+      const response = await appointmentAPI.getAllAppointments(params);
+      
+      // Check if the response has the expected structure
+      if (response.appointments) {
+        setAppointments(response.appointments);
+        setTotal(response.pagination.total);
+      } else {
+        console.error('Unexpected response format:', response);
+        setAppointments([]);
+        setTotal(0);
+      }
     } catch (error: any) {
+      console.error('Error fetching appointments:', error);
       dispatch(addNotification({
         message: error.response?.data?.message || 'Failed to fetch appointments',
         type: 'error'
       }));
+      setAppointments([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -123,9 +135,7 @@ const AppointmentList: React.FC = () => {
     }
 
     try {
-      await api.post(`/appointments/${id}/cancel`, {
-        reason: 'Cancelled by staff'
-      });
+      await appointmentAPI.cancelAppointment(id, 'Cancelled by staff');
       
       dispatch(addNotification({
         message: 'Appointment cancelled successfully',
@@ -249,46 +259,40 @@ const AppointmentList: React.FC = () => {
                 <TableRow key={appointment._id}>
                   <TableCell>
                     {appointment.patient.firstName} {appointment.patient.lastName}
-                    <Typography variant="caption" display="block" color="textSecondary">
-                      {appointment.patient.email}
-                    </Typography>
                   </TableCell>
                   <TableCell>
-                    Dr. {appointment.dentist.firstName} {appointment.dentist.lastName}
+                    {appointment.dentist.firstName} {appointment.dentist.lastName}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
-                      {format(new Date(appointment.startTime), 'PPP')}
-                    </Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      {format(new Date(appointment.startTime), 'p')} - {format(new Date(appointment.endTime), 'p')}
-                    </Typography>
+                    {format(new Date(appointment.startTime), 'MMM d, yyyy h:mm a')}
                   </TableCell>
                   <TableCell>
                     {getAppointmentTypeLabel(appointment.type)}
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={appointment.status}
-                      color={getStatusColor(appointment.status)}
+                    <Chip 
+                      label={appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                      color={getStatusColor(appointment.status) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
                       size="small"
                     />
                   </TableCell>
                   <TableCell>
                     <IconButton
-                      onClick={() => navigate(`/appointments/${appointment._id}/edit`)}
-                      title="Edit"
-                      disabled={['completed', 'cancelled'].includes(appointment.status)}
+                      color="primary"
+                      onClick={() => navigate(`/appointments/${appointment._id}`)}
+                      size="small"
                     >
                       <EditIcon />
                     </IconButton>
-                    <IconButton
-                      onClick={() => handleCancelAppointment(appointment._id)}
-                      title="Cancel"
-                      disabled={['completed', 'cancelled'].includes(appointment.status)}
-                    >
-                      <CancelIcon />
-                    </IconButton>
+                    {appointment.status === 'scheduled' && (
+                      <IconButton
+                        color="error"
+                        onClick={() => handleCancelAppointment(appointment._id)}
+                        size="small"
+                      >
+                        <CancelIcon />
+                      </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

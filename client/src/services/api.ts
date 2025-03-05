@@ -143,11 +143,37 @@ export const authAPI = {
 // User API calls
 export const userAPI = {
   getProfile: async () => {
-    return api.get('/auth/me').then(response => response.data);
+    return api.get('/users/profile').then(response => response.data);
   },
   
   updateProfile: async (userData: any) => {
     return api.put('/users/profile', userData).then(response => response.data);
+  },
+  
+  updatePassword: async (passwordData: { currentPassword: string, newPassword: string }) => {
+    return api.put('/users/password', passwordData).then(response => response.data);
+  },
+  
+  getPreferences: async () => {
+    return api.get('/users/preferences').then(response => response.data);
+  },
+  
+  updatePreferences: async (preferences: any) => {
+    return api.put('/users/preferences', { preferences }).then(response => response.data);
+  },
+  
+  updateTwoFactorAuth: async (enabled: boolean) => {
+    return api.put('/users/security/2fa', { enabled }).then(response => response.data);
+  },
+  
+  getAllUsers: async (params: { page?: number, limit?: number, role?: string } = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.role) queryParams.append('role', params.role);
+    
+    const url = `/users?${queryParams.toString()}`;
+    return api.get(url).then(response => response.data);
   }
 };
 

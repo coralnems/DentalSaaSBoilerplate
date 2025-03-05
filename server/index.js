@@ -34,7 +34,12 @@ app.use(
 );
 
 // CORS
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Body parser
 app.use(express.json({ limit: '10kb' }));
@@ -68,22 +73,22 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Connect to MongoDB and start server
-const startServer = async () => {
+function startServer() {
   try {
-    await connectDB();
-    
-    // Start server
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`[INFO] Server is running on port ${PORT}`);
-      console.log(`[INFO] API available at http://localhost:${PORT}/api`);
-      console.log(`[INFO] Health check at http://localhost:${PORT}/health`);
+    connectDB().then(() => {
+      // Start server
+      const PORT = process.env.PORT || 5000;
+      app.listen(PORT, function() {
+        console.log(`[INFO] Server is running on port ${PORT}`);
+        console.log(`[INFO] API available at http://localhost:${PORT}/api`);
+        console.log(`[INFO] Health check at http://localhost:${PORT}/health`);
+      });
     });
   } catch (error) {
     console.error('[ERROR] Failed to start server:', error);
     process.exit(1);
   }
-};
+}
 
 startServer();
 

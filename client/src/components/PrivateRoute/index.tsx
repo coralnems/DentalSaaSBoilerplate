@@ -4,7 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { CircularProgress, Box } from '@mui/material';
 
 import { RootState } from '@store/index';
-import { setLoading } from '@store/slices/authSlice';
+import { setLoading, setCredentials } from '@store/slices/authSlice';
 import { authApi } from '@api/services/auth';
 
 interface PrivateRouteProps {
@@ -24,7 +24,7 @@ const PrivateRoute = ({ children }: PrivateRouteProps) => {
       if (!isAuthenticated && token) {
         try {
           const response = await authApi.getCurrentUser();
-          dispatch(setCredentials({ user: response.user, token }));
+          dispatch(setCredentials({ user: response.user, accessToken: token }));
         } catch (error) {
           console.error('Authentication verification failed:', error);
           navigate('/login', { state: { from: location } });

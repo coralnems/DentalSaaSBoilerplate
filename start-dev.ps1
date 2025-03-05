@@ -11,8 +11,8 @@ Start-Sleep -Seconds 2
 # Start the server and client processes
 Write-Host "Starting server and client..." -ForegroundColor Green
 
-# Start the server in a new PowerShell window
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd $PWD\server; nodemon index.js"
+# Start the server in a new PowerShell window - use npx to run the locally installed nodemon
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd $PWD\server; npx nodemon index.js"
 
 # Wait a bit before starting the client
 Start-Sleep -Seconds 3

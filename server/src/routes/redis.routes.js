@@ -1,6 +1,6 @@
 const express = require('express');
 const redisController = require('../controllers/redis.controller');
-const { authenticate } = require('../middleware/auth');
+const { authenticateJWT } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -9,20 +9,20 @@ const router = express.Router();
  * @desc    Get a value from Redis
  * @access  Private
  */
-router.get('/:key', authenticate, redisController.getValue);
+router.get('/:key', authenticateJWT, redisController.getValue);
 
 /**
  * @route   POST /api/redis
  * @desc    Set a value in Redis
  * @access  Private
  */
-router.post('/', authenticate, redisController.setValue);
+router.post('/', authenticateJWT, redisController.setValue);
 
 /**
  * @route   DELETE /api/redis/:key
  * @desc    Delete a key from Redis
  * @access  Private
  */
-router.delete('/:key', authenticate, redisController.deleteKey);
+router.delete('/:key', authenticateJWT, redisController.deleteKey);
 
 module.exports = router; 

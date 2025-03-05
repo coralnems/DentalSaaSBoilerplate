@@ -13,6 +13,7 @@ import Patients from '@pages/patients';
 import PatientDetails from '@pages/patients/PatientDetails';
 import Appointments from '@pages/appointments';
 import AppointmentDetails from '@pages/appointments/AppointmentDetails';
+import Treatments from '@pages/treatments';
 import Payments from '@pages/payments';
 import PaymentDetails from '@pages/payments/PaymentDetails';
 import Settings from '@pages/settings';
@@ -36,7 +37,7 @@ const App = () => {
           </Box>
         </PrivateRoute>
       }>
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to="/login" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         
         <Route path="patients" element={<Patients />} />
@@ -44,6 +45,8 @@ const App = () => {
         
         <Route path="appointments" element={<Appointments />} />
         <Route path="appointments/:id" element={<AppointmentDetails />} />
+        
+        <Route path="treatments" element={<Treatments />} />
         
         <Route path="payments" element={<Payments />} />
         <Route path="payments/:id" element={<PaymentDetails />} />

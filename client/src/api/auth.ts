@@ -13,28 +13,67 @@ export interface RegisterData extends LoginCredentials {
 }
 
 export interface AuthResponse {
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  token: string;
+  user?: {
+    id?: string;
+    _id?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    role?: string;
   };
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
 const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', credentials);
-    this.setTokens(response.data.accessToken, response.data.refreshToken);
-    return response.data;
+    
+    const data = response.data;
+    
+    localStorage.setItem('dental_clinic_token', data.token);
+    
+    const normalizedResponse: AuthResponse = {
+      ...data,
+      user: {
+        id: data._id,
+        _id: data._id,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role
+      }
+    };
+    
+    return normalizedResponse;
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/register', data);
-    this.setTokens(response.data.accessToken, response.data.refreshToken);
-    return response.data;
+    
+    const responseData = response.data;
+    
+    localStorage.setItem('dental_clinic_token', responseData.token);
+    
+    const normalizedResponse: AuthResponse = {
+      ...responseData,
+      user: {
+        id: responseData._id,
+        _id: responseData._id,
+        email: responseData.email,
+        firstName: responseData.firstName,
+        lastName: responseData.lastName,
+        role: responseData.role
+      }
+    };
+    
+    return normalizedResponse;
   },
 
   async logout(): Promise<void> {
@@ -74,10 +113,11 @@ const authService = {
   clearTokens(): void {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('dental_clinic_token');
   },
 
   getAccessToken(): string | null {
-    return localStorage.getItem('accessToken');
+    return localStorage.getItem('accessToken') || localStorage.getItem('dental_clinic_token');
   },
 
   isAuthenticated(): boolean {

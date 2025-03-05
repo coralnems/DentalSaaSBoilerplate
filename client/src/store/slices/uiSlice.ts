@@ -1,46 +1,56 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface UIState {
-  sidebarOpen: boolean;
-  darkMode: boolean;
-  notifications: {
-    id: string;
-    type: 'success' | 'error' | 'warning' | 'info';
-    message: string;
-  }[];
+// Define notification types
+type NotificationType = 'success' | 'error' | 'info' | 'warning';
+
+// Define notification interface
+interface Notification {
+  id?: string;
+  message: string;
+  type: NotificationType;
+  duration?: number;
 }
 
-const initialState: UIState = {
-  sidebarOpen: true,
-  darkMode: localStorage.getItem('darkMode') === 'true',
-  notifications: [],
+// Define UI state interface
+interface UiState {
+  darkMode: boolean;
+  sidebarOpen: boolean;
+  loading: {
+    [key: string]: boolean;
+  };
+  notifications: Notification[];
+}
+
+// Initial state
+const initialState: UiState = {
+  darkMode: localStorage.getItem('darkMode') === 'true' || false,
+  sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false',
+  loading: {},
+  notifications: []
 };
 
+// Create the UI slice
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
-    toggleSidebar: (state) => {
-      state.sidebarOpen = !state.sidebarOpen;
-    },
-    setSidebarOpen: (state, action: PayloadAction<boolean>) => {
-      state.sidebarOpen = action.payload;
-    },
     toggleDarkMode: (state) => {
       state.darkMode = !state.darkMode;
-      localStorage.setItem('darkMode', state.darkMode.toString());
+      localStorage.setItem('darkMode', String(state.darkMode));
     },
-    addNotification: (
-      state,
-      action: PayloadAction<{
-        type: 'success' | 'error' | 'warning' | 'info';
-        message: string;
-      }>
-    ) => {
-      const id = Math.random().toString(36).substr(2, 9);
+    toggleSidebar: (state) => {
+      state.sidebarOpen = !state.sidebarOpen;
+      localStorage.setItem('sidebarOpen', String(state.sidebarOpen));
+    },
+    setLoading: (state, action: PayloadAction<{ key: string; isLoading: boolean }>) => {
+      const { key, isLoading } = action.payload;
+      state.loading[key] = isLoading;
+    },
+    showNotification: (state, action: PayloadAction<Notification>) => {
+      const id = Date.now().toString();
       state.notifications.push({
-        id,
         ...action.payload,
+        id
       });
     },
     removeNotification: (state, action: PayloadAction<string>) => {
@@ -48,15 +58,32 @@ const uiSlice = createSlice({
         (notification) => notification.id !== action.payload
       );
     },
+    clearNotifications: (state) => {
+      state.notifications = [];
+    },
+    addNotification: (state, action: PayloadAction<{
+      message: string;
+      type: 'success' | 'error' | 'info' | 'warning';
+    }>) => {
+      const id = Date.now().toString();
+      state.notifications.push({
+        id,
+        message: action.payload.message,
+        type: action.payload.type
+      });
+    }
   },
 });
 
+// Export actions and reducer
 export const {
-  toggleSidebar,
-  setSidebarOpen,
   toggleDarkMode,
-  addNotification,
+  toggleSidebar,
+  setLoading,
+  showNotification,
   removeNotification,
+  clearNotifications,
+  addNotification
 } = uiSlice.actions;
 
 export default uiSlice.reducer; 

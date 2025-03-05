@@ -4,6 +4,8 @@ import { createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import type { CustomTheme } from '@styles/theme';
 import { createThemeOptions } from '@styles/theme';
+import { useSelector } from 'react-redux';
+import { RootState } from '@store/index';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -18,18 +20,17 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // Get initial theme mode from localStorage or system preference
-  const getInitialMode = (): ThemeMode => {
-    const savedMode = localStorage.getItem('themeMode') as ThemeMode;
-    if (savedMode) {
-      return savedMode;
-    }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
-  };
+  // Get the initial theme from Redux state
+  const { darkMode } = useSelector((state: RootState) => state.ui);
+  const initialMode = darkMode ? 'dark' : 'light';
+  
+  // Set up local state for theme mode
+  const [mode, setMode] = useState<ThemeMode>(initialMode);
 
-  const [mode, setMode] = useState<ThemeMode>(getInitialMode);
+  // Update the local state when Redux state changes
+  useEffect(() => {
+    setMode(darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   // Create theme based on current mode
   const theme = React.useMemo(
@@ -37,30 +38,23 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     [mode]
   );
 
-  // Update localStorage when mode changes
-  useEffect(() => {
-    localStorage.setItem('themeMode', mode);
-  }, [mode]);
-
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem('themeMode')) {
-        setMode(e.matches ? 'dark' : 'light');
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
+  // Function to toggle theme mode
   const toggleTheme = () => {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
 
+  // Context value
+  const contextValue = React.useMemo(
+    () => ({
+      mode,
+      toggleTheme,
+      setMode,
+    }),
+    [mode]
+  );
+
   return (
-    <ThemeContext.Provider value={{ mode, toggleTheme, setMode }}>
+    <ThemeContext.Provider value={contextValue}>
       <MuiThemeProvider theme={theme}>
         <CssBaseline />
         {children}
@@ -71,7 +65,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;

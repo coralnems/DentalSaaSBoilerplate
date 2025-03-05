@@ -3,7 +3,7 @@ import authService, { AuthResponse } from '@api/auth';
 import { getUserInfo, getUserRole, isAuthenticated as checkAuth } from '../services/auth';
 
 interface AuthContextType {
-  user: AuthResponse['user'] | null;
+  user: AuthResponse | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   userRole: string | null;
@@ -15,7 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthResponse['user'] | null>(null);
+  const [user, setUser] = useState<AuthResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -51,11 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<AuthResponse> => {
     try {
       const response = await authService.login({ email, password });
-      setUser(response.user);
+      setUser(response);
       
-      // Update user role after login
-      const role = getUserRole();
-      setUserRole(role);
+      // Update user role
+      if (response && response.role) {
+        setUserRole(response.role);
+      } else if (response && response.user && response.user.role) {
+        setUserRole(response.user.role);
+      }
       
       return response;
     } catch (error) {
@@ -67,11 +70,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (data: any): Promise<AuthResponse> => {
     try {
       const response = await authService.register(data);
-      setUser(response.user);
+      setUser(response);
       
-      // Update user role after registration
-      const role = getUserRole();
-      setUserRole(role);
+      // Update user role
+      if (response && response.role) {
+        setUserRole(response.role);
+      } else if (response && response.user && response.user.role) {
+        setUserRole(response.user.role);
+      }
       
       return response;
     } catch (error) {
