@@ -8,6 +8,12 @@ interface User {
   role: string;
 }
 
+interface AuthResponse {
+  user: User;
+  accessToken: string;
+  refreshToken?: string;
+}
+
 interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
@@ -32,6 +38,11 @@ const authSlice = createSlice({
       state.token = action.payload;
       state.isAuthenticated = true;
     },
+    setCredentials: (state, action: PayloadAction<AuthResponse>) => {
+      state.user = action.payload.user;
+      state.token = action.payload.accessToken;
+      state.isAuthenticated = true;
+    },
     logout: (state) => {
       state.user = null;
       state.token = null;
@@ -40,5 +51,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setUser, setToken, logout } = authSlice.actions;
+export const { setUser, setToken, setCredentials, logout } = authSlice.actions;
 export default authSlice.reducer; 

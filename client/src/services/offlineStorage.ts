@@ -4,7 +4,8 @@ import CryptoJS from 'crypto-js';
 
 const DB_NAME = 'dentalClinicOffline';
 const DB_VERSION = 1;
-const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY || 'default-encryption-key';
+// Use Vite's environment variables
+const ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY || 'secure-encryption-key-for-development';
 
 interface SyncQueueItem {
   id?: number;

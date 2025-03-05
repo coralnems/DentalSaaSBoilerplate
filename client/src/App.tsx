@@ -1,7 +1,8 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 
-import Layout from '@components/Layout';
+// Import Layout components directly
+import Layout from '@components/Layout/index';
 import PrivateRoute from '@components/PrivateRoute';
 import Login from '@pages/auth/Login';
 import Register from '@pages/auth/Register';
@@ -20,38 +21,40 @@ import NotFound from '@pages/NotFound';
 
 const App = () => {
   return (
-    <Router>
-      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password/:token" element={<ResetPassword />} />
+    <Routes>
+      {/* Public Routes - No flex container */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-          {/* Protected Routes */}
-          <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            
-            <Route path="/patients" element={<Patients />} />
-            <Route path="/patients/:id" element={<PatientDetails />} />
-            
-            <Route path="/appointments" element={<Appointments />} />
-            <Route path="/appointments/:id" element={<AppointmentDetails />} />
-            
-            <Route path="/payments" element={<Payments />} />
-            <Route path="/payments/:id" element={<PaymentDetails />} />
-            
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/profile" element={<Profile />} />
-          </Route>
+      {/* Protected Routes with Layout - Flex container */}
+      <Route path="/" element={
+        <PrivateRoute>
+          <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+            <Layout />
+          </Box>
+        </PrivateRoute>
+      }>
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        
+        <Route path="patients" element={<Patients />} />
+        <Route path="patients/:id" element={<PatientDetails />} />
+        
+        <Route path="appointments" element={<Appointments />} />
+        <Route path="appointments/:id" element={<AppointmentDetails />} />
+        
+        <Route path="payments" element={<Payments />} />
+        <Route path="payments/:id" element={<PaymentDetails />} />
+        
+        <Route path="settings" element={<Settings />} />
+        <Route path="profile" element={<Profile />} />
+      </Route>
 
-          {/* 404 Route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Box>
-    </Router>
+      {/* 404 Route */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
 

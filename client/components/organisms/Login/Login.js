@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import R from 'ramda';
 
-import { faUser } from '@fortawesome/free-solid-svg-icons/faUser';
+import { faEnvelope } from '@fortawesome/free-solid-svg-icons/faEnvelope';
 import { faLock } from '@fortawesome/free-solid-svg-icons/faLock';
 
 import Box from 'react-bulma-companion/lib/Box';
@@ -21,22 +21,41 @@ export default function Login() {
   const dispatch = useDispatch();
 
   const [remember, setRemember] = useState(false);
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   useEffect(() => {
-    const username = localStorage.getItem('username');
-    if (username) {
+    const rememberedEmail = localStorage.getItem('email');
+    if (rememberedEmail) {
       setRemember(true);
-      setUsername(username);
+      setEmail(rememberedEmail);
     }
+
+    // Log the available test accounts for easy login
+    console.log('========== TEST ACCOUNTS ==========');
+    console.log('Admin User:');
+    console.log('Email: admin@healthcareapps.org');
+    console.log('Password: JPtp7XDGF=9ezR>q');
+    console.log('----------------------------------');
+    console.log('Doctor:');
+    console.log('Email: doctor@healthcareapps.org');
+    console.log('Password: M9V|?v}}&yrwcJML');
+    console.log('----------------------------------');
+    console.log('Receptionist:');
+    console.log('Email: reception@healthcareapps.org');
+    console.log('Password: |;;g]J39=wiqQXKg');
+    console.log('----------------------------------');
+    console.log('Patient:');
+    console.log('Email: patient@healthcareapps.org');
+    console.log('Password: ,H,^v&F8MeMK@}64');
+    console.log('==================================');
   }, []);
 
   const login = () => {
-    const userCredentials = { username, password };
+    const userCredentials = { email, password };
 
     if (remember) {
-      localStorage.setItem('username', username);
+      localStorage.setItem('email', email);
     }
 
     dispatch(attemptLogin(userCredentials))
@@ -46,11 +65,11 @@ export default function Login() {
   useKeyPress('Enter', login);
 
   const rememberMe = () => {
-    localStorage.removeItem('username');
+    localStorage.removeItem('email');
     setRemember(!remember);
   };
 
-  const updateUsername = e => setUsername(e.target.value);
+  const updateEmail = e => setEmail(e.target.value);
   const updatePassword = e => setPassword(e.target.value);
 
   return (
@@ -66,10 +85,11 @@ export default function Login() {
         </Link>
       </Block>
       <FormInput
-        onChange={updateUsername}
-        placeholder="Username"
-        value={username}
-        leftIcon={faUser}
+        onChange={updateEmail}
+        placeholder="Email"
+        value={email}
+        leftIcon={faEnvelope}
+        type="email"
       />
       <FormInput
         onChange={updatePassword}
@@ -93,6 +113,9 @@ export default function Login() {
           <span>&nbsp; Remember me</span>
         </Checkbox>
       </Control>
+      <Block className="help-text">
+        <small>* Check browser console for test account credentials</small>
+      </Block>
     </Box>
   );
 }

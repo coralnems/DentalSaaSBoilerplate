@@ -18,20 +18,37 @@ const generateToken = (user) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
 
+    // Check if user exists
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = generateToken(user);
-    res.json({ token, user: { id: user._id, email: user.email, role: user.role } });
+    // Generate token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    res.json({
+      user: {
+        id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role
+      },
+      token
+    });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

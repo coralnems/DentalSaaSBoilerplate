@@ -2,35 +2,35 @@ const authService = require('../services/authService');
 const { AppError } = require('./errorHandler');
 const User = require('../models/User');
 const { createAuditLog } = require('../utils/auditLogger');
+const jwt = require('jsonwebtoken');
 
 // Middleware to authenticate user using JWT
 const authenticate = async (req, res, next) => {
   try {
     // Get token from header
     const token = req.header('Authorization')?.replace('Bearer ', '');
+
     if (!token) {
-      throw new AppError('No authentication token provided', 401);
+      return next(new AppError(401, 'No token, authorization denied'));
     }
 
     // Verify token
-    const decoded = await authService.verifyAccessToken(token);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user
-    const user = await User.findById(decoded._id);
-    if (!user || !user.active) {
-      throw new AppError('User not found or inactive', 401);
-    }
-
-    // Check if user is locked out
-    await authService.isLockedOut(user);
-
-    // Add user and token to request
-    req.user = user;
-    req.token = token;
-
+    // Add user from payload
+    req.user = decoded;
+    
     next();
   } catch (error) {
-    next(error);
+    if (error.name === 'JsonWebTokenError') {
+      return next(new AppError(401, 'Invalid token'));
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return next(new AppError(401, 'Token expired'));
+    }
+    
+    return next(new AppError(500, 'Server error'));
   }
 };
 

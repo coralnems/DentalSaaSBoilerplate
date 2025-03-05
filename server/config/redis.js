@@ -1,10 +1,16 @@
 const Redis = require('ioredis');
 const logger = require('./logger');
 
+// Debug Redis configuration
+console.log('Redis configuration from environment:');
+console.log('REDIS_HOST:', process.env.REDIS_HOST);
+console.log('REDIS_PORT:', process.env.REDIS_PORT);
+console.log('REDIS_URL:', process.env.REDIS_URL);
+
 // Redis configuration
 const redisConfig = {
   host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
+  port: parseInt(process.env.REDIS_PORT, 10) || 6379,
   password: process.env.REDIS_PASSWORD,
   db: process.env.REDIS_DB || 0,
   retryStrategy: (times) => {
@@ -13,6 +19,8 @@ const redisConfig = {
   },
   maxRetriesPerRequest: 3
 };
+
+console.log('Using Redis configuration:', redisConfig);
 
 // Create Redis client
 const redisClient = new Redis(redisConfig);

@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import React from 'react';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import {
@@ -11,15 +10,13 @@ import {
   Link,
   TextField,
   Typography,
+  Paper,
   InputAdornment,
   IconButton,
-  Paper,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-
-import { setCredentials } from '@store/slices/authSlice';
-import { addNotification } from '@store/slices/uiSlice';
-import { authApi } from '@api/services/auth';
+import { useAuth } from '@contexts/AuthContext';
+import { showToast } from '@components/Toast';
 
 const validationSchema = Yup.object({
   firstName: Yup.string()
@@ -31,55 +28,56 @@ const validationSchema = Yup.object({
   email: Yup.string()
     .email('Invalid email address')
     .required('Email is required'),
+  phone: Yup.string()
+    .matches(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number')
+    .required('Phone number is required'),
   password: Yup.string()
+    .required('Password is required')
     .min(8, 'Password must be at least 8 characters')
     .matches(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    )
-    .required('Password is required'),
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+    ),
   confirmPassword: Yup.string()
-    .oneOf([Yup.ref('password')], 'Passwords must match')
-    .required('Confirm password is required'),
+    .required('Please confirm your password')
+    .oneOf([Yup.ref('password')], 'Passwords must match'),
 });
+
+interface RegisterFormValues {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+}
 
 const Register = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { register } = useAuth();
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+
+  const initialValues: RegisterFormValues = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  };
 
   const handleSubmit = async (
-    values: {
-      firstName: string;
-      lastName: string;
-      email: string;
-      password: string;
-      confirmPassword: string;
-    },
+    values: RegisterFormValues,
     { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }
   ) => {
     try {
-      const { confirmPassword, ...registerData } = values;
-      const response = await authApi.register({
-        ...registerData,
-        tenantId: 'default', // You might want to handle this differently
-      });
-      dispatch(setCredentials(response));
-      dispatch(
-        addNotification({
-          type: 'success',
-          message: 'Registration successful!',
-        })
-      );
-      navigate('/dashboard', { replace: true });
+      const { confirmPassword, ...registrationData } = values;
+      await register(registrationData);
+      showToast.success('Registration successful! Welcome aboard!');
+      navigate('/dashboard');
     } catch (error: any) {
-      dispatch(
-        addNotification({
-          type: 'error',
-          message: error.response?.data?.message || 'Registration failed',
-        })
-      );
+      showToast.error(error.response?.data?.message || 'Registration failed');
     } finally {
       setSubmitting(false);
     }
@@ -95,30 +93,16 @@ const Register = () => {
       }}
     >
       <Container maxWidth="sm">
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <Typography component="h1" variant="h4" gutterBottom>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography component="h1" variant="h4" align="center" gutterBottom>
             Create Account
           </Typography>
-          <Typography color="textSecondary" gutterBottom>
-            Sign up for a new account
+          <Typography color="textSecondary" align="center" paragraph>
+            Fill in your details to get started
           </Typography>
 
           <Formik
-            initialValues={{
-              firstName: '',
-              lastName: '',
-              email: '',
-              password: '',
-              confirmPassword: '',
-            }}
+            initialValues={initialValues}
             validationSchema={validationSchema}
             onSubmit={handleSubmit}
           >
@@ -130,7 +114,7 @@ const Register = () => {
               handleBlur,
               isSubmitting,
             }) => (
-              <Form style={{ width: '100%', marginTop: '1rem' }}>
+              <Form>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
                     <TextField
@@ -158,78 +142,100 @@ const Register = () => {
                       helperText={touched.lastName && errors.lastName}
                     />
                   </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="email"
+                      name="email"
+                      label="Email Address"
+                      value={values.email}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={touched.email && Boolean(errors.email)}
+                      helperText={touched.email && errors.email}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="phone"
+                      name="phone"
+                      label="Phone Number"
+                      value={values.phone}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={touched.phone && Boolean(errors.phone)}
+                      helperText={touched.phone && errors.phone}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="password"
+                      name="password"
+                      label="Password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={values.password}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={touched.password && Boolean(errors.password)}
+                      helperText={touched.password && errors.password}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowPassword(!showPassword)}
+                              edge="end"
+                            >
+                              {showPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      label="Confirm Password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={values.confirmPassword}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      error={
+                        touched.confirmPassword && Boolean(errors.confirmPassword)
+                      }
+                      helperText={
+                        touched.confirmPassword && errors.confirmPassword
+                      }
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() =>
+                                setShowConfirmPassword(!showConfirmPassword)
+                              }
+                              edge="end"
+                            >
+                              {showConfirmPassword ? (
+                                <VisibilityOff />
+                              ) : (
+                                <Visibility />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
                 </Grid>
-
-                <TextField
-                  fullWidth
-                  id="email"
-                  name="email"
-                  label="Email Address"
-                  value={values.email}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={touched.email && Boolean(errors.email)}
-                  helperText={touched.email && errors.email}
-                  margin="normal"
-                />
-
-                <TextField
-                  fullWidth
-                  id="password"
-                  name="password"
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={values.password}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={touched.password && Boolean(errors.password)}
-                  helperText={touched.password && errors.password}
-                  margin="normal"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <TextField
-                  fullWidth
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  label="Confirm Password"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={values.confirmPassword}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  error={touched.confirmPassword && Boolean(errors.confirmPassword)}
-                  helperText={touched.confirmPassword && errors.confirmPassword}
-                  margin="normal"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          edge="end"
-                        >
-                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
 
                 <Button
                   type="submit"
                   fullWidth
                   variant="contained"
-                  size="large"
                   disabled={isSubmitting}
                   sx={{ mt: 3, mb: 2 }}
                 >
@@ -237,7 +243,7 @@ const Register = () => {
                 </Button>
 
                 <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="body2" color="textSecondary">
+                  <Typography variant="body2">
                     Already have an account?{' '}
                     <Link component={RouterLink} to="/login">
                       Sign in
