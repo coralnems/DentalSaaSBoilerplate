@@ -7,39 +7,71 @@ const compression = require('compression');
 const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const connectDB = require('./src/config/database');
 const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 
 // Create Express app
 const app = express();
 
+// Environment-specific configuration
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : ['http://localhost:3000', 'http://localhost:5173'];
+
 // Security middleware
 app.use(helmet());
 
-// Secure HTTP headers
+// Secure HTTP headers with environment-specific CSP
 app.use(
   helmet.contentSecurityPolicy({
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", 'https://api.example.com'],
+      connectSrc: [
+        "'self'", 
+        ...(isProduction ? [] : ['ws://localhost:*']), // Allow WebSocket in development
+        process.env.API_URL || 'https://api.example.com'
+      ],
       frameSrc: ["'self'"],
       childSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: [
+        "'self'", 
+        ...(isProduction ? [] : ["'unsafe-eval'"]), // Only allow unsafe-eval in development
+        // Hash for inline scripts if needed
+        process.env.CSP_SCRIPT_HASH || ''
+      ],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:', 'https://example.com'],
       baseUri: ["'self'"],
+      formAction: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: isProduction ? [] : null,
     },
   })
 );
 
-// CORS
+// CORS with environment-specific configuration
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    
+    return callback(null, true);
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Cookie parser for HTTP-only cookies
+app.use(cookieParser(process.env.COOKIE_SECRET || 'dental-clinic-secret'));
 
 // Body parser
 app.use(express.json({ limit: '10kb' }));
@@ -56,6 +88,7 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memoryUsage: process.memoryUsage(),
+    environment: process.env.NODE_ENV || 'development',
     mongoConnection: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
   });
 });
@@ -65,6 +98,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // API routes
 app.use('/api', require('./src/routes'));
+
+// Serve React app in production
+if (isProduction) {
+  app.use(express.static(path.join(__dirname, 'client/dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/dist/index.html'));
+  });
+}
 
 // Handle 404s
 app.use(notFound);
@@ -79,7 +121,7 @@ function startServer() {
       // Start server
       const PORT = process.env.PORT || 5000;
       app.listen(PORT, function() {
-        console.log(`[INFO] Server is running on port ${PORT}`);
+        console.log(`[INFO] Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
         console.log(`[INFO] API available at http://localhost:${PORT}/api`);
         console.log(`[INFO] Health check at http://localhost:${PORT}/health`);
       });

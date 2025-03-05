@@ -1,23 +1,28 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import authService, { AuthResponse } from '@api/auth';
+import authService, { AuthResponse, RegisterData, User } from '@api/auth';
 import { getUserInfo, getUserRole, isAuthenticated as checkAuth } from '../services/auth';
 
 interface AuthContextType {
-  user: AuthResponse | null;
+  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   userRole: string | null;
   login: (email: string, password: string) => Promise<AuthResponse>;
-  register: (data: any) => Promise<AuthResponse>;
+  register: (data: RegisterData) => Promise<AuthResponse>;
   logout: () => Promise<void>;
+  error: string | null;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthResponse | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = () => setError(null);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -30,17 +35,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Get user role from the token
           const role = getUserRole();
           setUserRole(role);
-          
-          setIsLoading(false);
         } else {
           setUser(null);
           setUserRole(null);
-          setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
         setUser(null);
         setUserRole(null);
+        setError('Failed to initialize authentication');
+      } finally {
         setIsLoading(false);
       }
     };
@@ -50,37 +54,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<AuthResponse> => {
     try {
+      clearError();
       const response = await authService.login({ email, password });
-      setUser(response);
-      
-      // Update user role
-      if (response && response.role) {
-        setUserRole(response.role);
-      } else if (response && response.user && response.user.role) {
-        setUserRole(response.user.role);
-      }
-      
+      setUser(response.user);
+      setUserRole(response.user.role);
       return response;
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.message || 'Login failed. Please check your credentials.';
+      setError(errorMessage);
       console.error('Login error:', error);
       throw error;
     }
   };
 
-  const register = async (data: any): Promise<AuthResponse> => {
+  const register = async (data: RegisterData): Promise<AuthResponse> => {
     try {
+      clearError();
       const response = await authService.register(data);
-      setUser(response);
-      
-      // Update user role
-      if (response && response.role) {
-        setUserRole(response.role);
-      } else if (response && response.user && response.user.role) {
-        setUserRole(response.user.role);
-      }
-      
+      setUser(response.user);
+      setUserRole(response.user.role);
       return response;
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.message || 'Registration failed. Please try again.';
+      setError(errorMessage);
       console.error('Registration error:', error);
       throw error;
     }
@@ -88,10 +84,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      clearError();
       await authService.logout();
       setUser(null);
       setUserRole(null);
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.message || 'Logout failed. Please try again.';
+      setError(errorMessage);
       console.error('Logout error:', error);
       throw error;
     }
@@ -105,6 +104,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     register,
     logout,
+    error,
+    clearError
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

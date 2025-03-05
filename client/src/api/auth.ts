@@ -1,33 +1,31 @@
 import api from './axios';
+import { jwtDecode } from 'jwt-decode';
 
 export interface LoginCredentials {
   email: string;
   password: string;
 }
 
-export interface RegisterData extends LoginCredentials {
+export interface RegisterData {
+  email: string;
+  password: string;
   firstName: string;
   lastName: string;
   phone: string;
   role?: string;
 }
 
-export interface AuthResponse {
-  _id: string;
+export interface User {
+  id: string;
+  email: string;
   firstName: string;
   lastName: string;
-  email: string;
   role: string;
-  token: string;
-  user?: {
-    id?: string;
-    _id?: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    role?: string;
-  };
-  accessToken?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  accessToken: string;
   refreshToken?: string;
 }
 
@@ -37,63 +35,39 @@ const REFRESH_TOKEN_KEY = 'refreshToken';
 
 const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/auth/login', credentials);
-    
+    const response = await api.post<any>('/auth/login', credentials);
     const data = response.data;
     
-    // Store tokens consistently
-    if (data.token) {
-      this.setTokens(data.token, data.refreshToken || '');
-    } else if (data.accessToken) {
-      this.setTokens(data.accessToken, data.refreshToken || '');
-    }
+    // Normalize response structure
+    const normalizedResponse: AuthResponse = this.normalizeAuthResponse(data);
     
-    const normalizedResponse: AuthResponse = {
-      ...data,
-      user: {
-        id: data._id,
-        _id: data._id,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: data.role
-      }
-    };
+    // Store tokens in HTTP-only cookies (handled by the server)
+    // We still keep a copy in memory for the current session
+    this.setTokens(normalizedResponse.accessToken, normalizedResponse.refreshToken || '');
     
     return normalizedResponse;
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/auth/register', data);
-    
+    const response = await api.post<any>('/auth/register', data);
     const responseData = response.data;
     
-    // Store tokens consistently
-    if (responseData.token) {
-      this.setTokens(responseData.token, responseData.refreshToken || '');
-    } else if (responseData.accessToken) {
-      this.setTokens(responseData.accessToken, responseData.refreshToken || '');
-    }
+    // Normalize response structure
+    const normalizedResponse: AuthResponse = this.normalizeAuthResponse(responseData);
     
-    const normalizedResponse: AuthResponse = {
-      ...responseData,
-      user: {
-        id: responseData._id,
-        _id: responseData._id,
-        email: responseData.email,
-        firstName: responseData.firstName,
-        lastName: responseData.lastName,
-        role: responseData.role
-      }
-    };
+    // Store tokens in HTTP-only cookies (handled by the server)
+    // We still keep a copy in memory for the current session
+    this.setTokens(normalizedResponse.accessToken, normalizedResponse.refreshToken || '');
     
     return normalizedResponse;
   },
 
   async logout(): Promise<void> {
     try {
+      // Server will clear HTTP-only cookies
       await api.post('/auth/logout');
     } finally {
+      // Clear local storage tokens
       this.clearTokens();
     }
   },
@@ -111,18 +85,26 @@ const authService = {
   },
 
   async refreshToken(): Promise<string> {
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    const response = await api.post<{ accessToken: string }>('/auth/refresh', {
-      refreshToken,
-    });
-    
-    const accessToken = response.data.accessToken;
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    return accessToken;
+    try {
+      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+      const response = await api.post<{ accessToken: string }>('/auth/refresh', {
+        refreshToken,
+      });
+      
+      const { accessToken } = response.data;
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      return accessToken;
+    } catch (error) {
+      this.clearTokens();
+      throw error;
+    }
   },
 
   setTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    if (accessToken) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    }
+    
     if (refreshToken) {
       localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     }
@@ -131,6 +113,7 @@ const authService = {
   clearTokens(): void {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    // Remove legacy token if it exists
     localStorage.removeItem('dental_clinic_token');
   },
 
@@ -139,8 +122,54 @@ const authService = {
   },
 
   isAuthenticated(): boolean {
-    return !!this.getAccessToken();
+    const token = this.getAccessToken();
+    if (!token) return false;
+    
+    try {
+      const decoded: any = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+      
+      // Check if token is expired
+      return decoded.exp > currentTime;
+    } catch (error) {
+      return false;
+    }
   },
+  
+  normalizeAuthResponse(data: any): AuthResponse {
+    // Handle different response formats from the server
+    const accessToken = data.accessToken || data.token || '';
+    const refreshToken = data.refreshToken || '';
+    
+    // Extract user data from response or from token
+    let user: User;
+    
+    if (data.user) {
+      // If user object is provided directly
+      user = {
+        id: data.user.id || data.user._id || '',
+        email: data.user.email || '',
+        firstName: data.user.firstName || '',
+        lastName: data.user.lastName || '',
+        role: data.user.role || ''
+      };
+    } else {
+      // If user data is at the root level
+      user = {
+        id: data._id || data.id || '',
+        email: data.email || '',
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        role: data.role || ''
+      };
+    }
+    
+    return {
+      user,
+      accessToken,
+      refreshToken
+    };
+  }
 };
 
 export default authService; 

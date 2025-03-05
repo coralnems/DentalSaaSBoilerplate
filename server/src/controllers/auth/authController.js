@@ -23,6 +23,41 @@ function generateRefreshToken(id) {
 }
 
 /**
+ * Set secure HTTP-only cookies for authentication
+ */
+function setAuthCookies(res, userId) {
+  const token = generateToken(userId);
+  const refreshToken = generateRefreshToken(userId);
+  
+  // Cookie options
+  const cookieOptions = {
+    httpOnly: true, // Prevents JavaScript access
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    sameSite: 'strict', // CSRF protection
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  };
+  
+  // Create refresh cookie options by extending the base options
+  const refreshCookieOptions = Object.assign({}, cookieOptions, {
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+  });
+  
+  // Set cookies
+  res.cookie('accessToken', token, cookieOptions);
+  res.cookie('refreshToken', refreshToken, refreshCookieOptions);
+  
+  return { token, refreshToken };
+}
+
+/**
+ * Clear authentication cookies
+ */
+function clearAuthCookies(res) {
+  res.clearCookie('accessToken');
+  res.clearCookie('refreshToken');
+}
+
+/**
  * @desc    Register a new user
  * @route   POST /api/auth/register
  * @access  Public
@@ -53,9 +88,8 @@ function register(req, res) {
           })
           .then(user => {
             if (user) {
-              // Generate tokens
-              const token = generateToken(user._id);
-              const refreshToken = generateRefreshToken(user._id);
+              // Set HTTP-only cookies and get tokens for response
+              const { token, refreshToken } = setAuthCookies(res, user._id);
               
               res.status(201).json({
                 _id: user._id,
@@ -113,9 +147,8 @@ function login(req, res) {
               return res.status(401).json({ message: 'Invalid credentials' });
             }
 
-            // Generate tokens
-            const token = generateToken(user._id);
-            const refreshToken = generateRefreshToken(user._id);
+            // Set HTTP-only cookies and get tokens for response
+            const { token, refreshToken } = setAuthCookies(res, user._id);
             
             res.json({
               _id: user._id,
@@ -330,33 +363,42 @@ function verifyEmail(req, res) {
 }
 
 /**
- * @desc    Refresh access token
+ * @desc    Refresh token
  * @route   POST /api/auth/refresh
  * @access  Public
  */
 function refreshToken(req, res) {
   try {
-    const { refreshToken: token } = req.body;
+    // Get refresh token from cookies first, then fallback to request body
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
     
-    if (!token) {
-      return res.status(400).json({ message: 'Please provide a refresh token' });
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'No refresh token provided' });
     }
     
     // Verify refresh token
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
       if (err) {
-        logger.error('Refresh token error:', err.message);
         return res.status(401).json({ message: 'Invalid refresh token' });
       }
       
       // Generate new access token
       const accessToken = generateToken(decoded.id);
       
-      res.status(200).json({ accessToken });
+      // Set new access token in HTTP-only cookie
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
+      // Return new access token in response
+      res.json({ accessToken });
     });
   } catch (error) {
     logger.error('Refresh token error:', error.message);
-    res.status(401).json({ message: 'Invalid refresh token' });
+    res.status(500).json({ message: 'Server error' });
   }
 }
 
@@ -366,9 +408,15 @@ function refreshToken(req, res) {
  * @access  Public
  */
 function logout(req, res) {
-  // In a stateless JWT authentication system, the client is responsible for removing the token
-  // The server doesn't need to do anything special for logout
-  res.status(200).json({ message: 'Logged out successfully' });
+  try {
+    // Clear auth cookies
+    clearAuthCookies(res);
+    
+    res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    logger.error('Logout error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
 }
 
 module.exports = {

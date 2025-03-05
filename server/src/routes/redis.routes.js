@@ -1,5 +1,5 @@
 const express = require('express');
-const redisController = require('../controllers/redis.controller');
+const redisController = require('../controllers/redisController');
 const { authenticateJWT } = require('../middleware/auth');
 
 const router = express.Router();
@@ -23,6 +23,13 @@ router.post('/', authenticateJWT, redisController.setValue);
  * @desc    Delete a key from Redis
  * @access  Private
  */
-router.delete('/:key', authenticateJWT, redisController.deleteKey);
+router.delete('/:key', authenticateJWT, redisController.deleteValue);
+
+/**
+ * @route   GET /api/redis/keys/:pattern
+ * @desc    Get all keys matching a pattern
+ * @access  Private
+ */
+router.get('/keys/:pattern', authenticateJWT, redisController.getKeys);
 
 module.exports = router; 

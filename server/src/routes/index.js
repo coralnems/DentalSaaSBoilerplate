@@ -4,8 +4,8 @@ const router = express.Router();
 // Import routes
 const authRoutes = require('./auth/authRoutes');
 const redisRoutes = require('./redis.routes');
-const appointmentRoutes = require('./appointments.routes');
-const patientRoutes = require('./patients.routes');
+const appointmentRoutes = require('./appointmentRoutes');
+const patientRoutes = require('./patientRoutes');
 const treatmentRoutes = require('./treatments.routes');
 const paymentRoutes = require('./payments.routes');
 const userRoutes = require('./users.routes');

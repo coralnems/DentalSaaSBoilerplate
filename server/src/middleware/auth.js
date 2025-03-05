@@ -3,12 +3,20 @@ const User = require('../models/User');
 
 /**
  * Authentication middleware to verify JWT tokens
+ * Supports both cookie-based and header-based authentication
  */
 function authenticateJWT(req, res, next) {
   try {
-    // Get token from header
-    const token = req.header('Authorization') ? 
-      req.header('Authorization').replace('Bearer ', '') : null;
+    let token = null;
+    
+    // Check for token in cookies first (more secure)
+    if (req.cookies && req.cookies.accessToken) {
+      token = req.cookies.accessToken;
+    } 
+    // Fallback to Authorization header
+    else if (req.header('Authorization')) {
+      token = req.header('Authorization').replace('Bearer ', '');
+    }
     
     if (!token) {
       return res.status(401).json({ message: 'No authentication token, access denied' });
@@ -20,7 +28,7 @@ function authenticateJWT(req, res, next) {
     // Find user by id
     User.findById(decoded.id)
       .select('-password')
-      .then(user => {
+      .then(function(user) {
         if (!user) {
           return res.status(401).json({ message: 'Token is valid, but user no longer exists' });
         }
@@ -29,7 +37,7 @@ function authenticateJWT(req, res, next) {
         req.user = user;
         next();
       })
-      .catch(err => {
+      .catch(function(err) {
         console.error('User lookup error:', err.message);
         res.status(401).json({ message: 'Error authenticating user' });
       });
@@ -44,6 +52,12 @@ function authenticateJWT(req, res, next) {
  */
 function authorizeRoles(roles) {
   return function(req, res, next) {
+    if (!req.user) {
+      return res.status(401).json({
+        message: 'Authentication required before authorization'
+      });
+    }
+    
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         message: `Role ${req.user.role} is not authorized to access this resource`,

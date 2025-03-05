@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
+import { useAuth } from '@contexts/AuthContext';
 
 // Import Layout components directly
 import Layout from '@components/Layout/index';
@@ -21,23 +22,33 @@ import Profile from '@pages/profile';
 import NotFound from '@pages/NotFound';
 
 const App = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <Routes>
       {/* Public Routes - No flex container */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={
+        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+      } />
+      <Route path="/register" element={
+        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />
+      } />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-      {/* Protected Routes with Layout - Flex container */}
+      {/* Root redirect - outside of PrivateRoute to prevent loops */}
       <Route path="/" element={
+        <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />
+      } />
+
+      {/* Protected Routes with Layout - Flex container */}
+      <Route element={
         <PrivateRoute>
           <Box sx={{ display: 'flex', minHeight: '100vh' }}>
             <Layout />
           </Box>
         </PrivateRoute>
       }>
-        <Route index element={<Navigate to="/login" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         
         <Route path="patients" element={<Patients />} />
