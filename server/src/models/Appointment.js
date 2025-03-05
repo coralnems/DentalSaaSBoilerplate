@@ -1,18 +1,19 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
 /**
  * Appointment Schema
  */
-const appointmentSchema = new mongoose.Schema(
+const appointmentSchema = new Schema(
   {
     patient: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'Patient',
       required: [true, 'Patient is required'],
       index: true
     },
     dentist: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Dentist is required'],
       index: true
@@ -27,24 +28,39 @@ const appointmentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['scheduled', 'confirmed', 'completed', 'cancelled', 'no-show'],
+      enum: ['scheduled', 'confirmed', 'in-progress', 'completed', 'cancelled', 'no-show'],
       default: 'scheduled'
     },
     type: {
       type: String,
-      enum: ['checkup', 'cleaning', 'emergency', 'surgery', 'consultation', 'follow-up', 'other'],
+      enum: ['checkup', 'cleaning', 'emergency', 'surgery', 'consultation', 'follow-up', 
+             'filling', 'extraction', 'root-canal', 'crown', 'bridge', 'implant', 'orthodontic', 'other'],
       required: [true, 'Appointment type is required']
+    },
+    reason: {
+      type: String,
+      required: true
+    },
+    urgency: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'emergency'],
+      default: 'low'
     },
     notes: {
       type: String,
-      trim: true
+      trim: true,
+      default: ''
+    },
+    cancellationReason: {
+      type: String,
+      default: ''
     },
     treatment: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'Treatment'
     },
     createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'User'
     }
   },
@@ -55,6 +71,11 @@ const appointmentSchema = new mongoose.Schema(
   }
 );
 
+// Create indexes for efficient querying
+appointmentSchema.index({ patient: 1, startTime: -1 });
+appointmentSchema.index({ dentist: 1, startTime: -1 });
+appointmentSchema.index({ status: 1 });
+appointmentSchema.index({ startTime: 1 });
 // Compound index for checking conflicts
 appointmentSchema.index({ dentist: 1, startTime: 1, endTime: 1 });
 

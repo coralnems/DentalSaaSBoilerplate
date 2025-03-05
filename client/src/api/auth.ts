@@ -31,13 +31,22 @@ export interface AuthResponse {
   refreshToken?: string;
 }
 
+// Token constants
+const ACCESS_TOKEN_KEY = 'accessToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+
 const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', credentials);
     
     const data = response.data;
     
-    localStorage.setItem('dental_clinic_token', data.token);
+    // Store tokens consistently
+    if (data.token) {
+      this.setTokens(data.token, data.refreshToken || '');
+    } else if (data.accessToken) {
+      this.setTokens(data.accessToken, data.refreshToken || '');
+    }
     
     const normalizedResponse: AuthResponse = {
       ...data,
@@ -59,7 +68,12 @@ const authService = {
     
     const responseData = response.data;
     
-    localStorage.setItem('dental_clinic_token', responseData.token);
+    // Store tokens consistently
+    if (responseData.token) {
+      this.setTokens(responseData.token, responseData.refreshToken || '');
+    } else if (responseData.accessToken) {
+      this.setTokens(responseData.accessToken, responseData.refreshToken || '');
+    }
     
     const normalizedResponse: AuthResponse = {
       ...responseData,
@@ -97,27 +111,31 @@ const authService = {
   },
 
   async refreshToken(): Promise<string> {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     const response = await api.post<{ accessToken: string }>('/auth/refresh', {
       refreshToken,
     });
-    localStorage.setItem('accessToken', response.data.accessToken);
-    return response.data.accessToken;
+    
+    const accessToken = response.data.accessToken;
+    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    return accessToken;
   },
 
   setTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
   },
 
   clearTokens(): void {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem('dental_clinic_token');
   },
 
   getAccessToken(): string | null {
-    return localStorage.getItem('accessToken') || localStorage.getItem('dental_clinic_token');
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
   },
 
   isAuthenticated(): boolean {
